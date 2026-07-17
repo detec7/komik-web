@@ -23,7 +23,8 @@ mongoose.connect(mongoURI)
 const chapterSchema = new mongoose.Schema({
     judulKomik: String,
     nomorChapter: Number,
-    gambar: [String], // Sekarang ini akan berisi link dari Cloudinary
+    cover: String, // BARU: Untuk menyimpan link Cover
+    gambar: [String],
     tanggalDibuat: { type: Date, default: Date.now }
 });
 const Chapter = mongoose.model('Chapter', chapterSchema);
@@ -47,8 +48,26 @@ const upload = multer({ storage: storage });
 
 app.get('/', async (req, res) => {
     try {
-        const semuaChapter = await Chapter.find().sort({ tanggalDibuat: -1 });
-        res.render('index', { listChapter: semuaChapter });
+        // Mengurutkan dari chapter terbesar ke terkecil
+        const semuaChapter = await Chapter.find().sort({ nomorChapter: -1 });
+        
+        // Mengelompokkan chapter agar tidak berceceran (sesuai Judul)
+        const komikGroup = {};
+        semuaChapter.forEach(ch => {
+            if (!komikGroup[ch.judulKomik]) {
+                komikGroup[ch.judulKomik] = {
+                    judul: ch.judulKomik,
+                    // Jika tidak ada cover, gunakan gambar default
+                    cover: ch.cover || 'https://via.placeholder.com/720x1028?text=No+Cover',
+                    chapters: []
+                };
+            }
+            komikGroup[ch.judulKomik].chapters.push(ch);
+        });
+
+        // Mengubah objek grup menjadi array agar bisa dibaca EJS
+        const listKomik = Object.values(komikGroup);
+        res.render('index', { listKomik: listKomik });
     } catch (err) {
         res.send("Terjadi kesalahan saat memuat halaman utama.");
     }
@@ -58,37 +77,37 @@ app.get('/dashboard', (req, res) => {
     res.render('admin');
 });
 
-// Proses Upload (Sekarang akan memakan waktu lebih lama karena diunggah ke internet)
-app.post('/upload-chapter', upload.array('gambarKomik', 500), async (req, res) => {
+// Menggunakan upload.fields untuk menerima input 'cover' dan 'gambarKomik'
+app.post('/upload-chapter', upload.fields([{ name: 'cover', maxCount: 1 }, { name: 'gambarKomik', maxCount: 500 }]), async (req, res) => {
     
-    // Mengurutkan gambar A-Z (Sama seperti sebelumnya)
-    let fileYangDiurutkan = req.files.sort((a, b) => {
-        return a.originalname.localeCompare(b.originalname, undefined, {
-            numeric: true,
-            sensitivity: 'base'
-        });
+    // 1. Mengurutkan dan mengambil link gambar chapter
+    let fileYangDiurutkan = req.files['gambarKomik'].sort((a, b) => {
+        return a.originalname.localeCompare(b.originalname, undefined, { numeric: true, sensitivity: 'base' });
     });
 
     let linkGambar = [];
-    fileYangDiurutkan.forEach(file => {
-        // BARU: Kita mengambil 'path' yang sekarang berisi URL asli dari Cloudinary
-        linkGambar.push(file.path);
-    });
+    fileYangDiurutkan.forEach(file => { linkGambar.push(file.path); });
 
+    // 2. Mengambil link cover (jika diupload)
+    let linkCover = '';
+    if (req.files['cover'] && req.files['cover'].length > 0) {
+        linkCover = req.files['cover'][0].path;
+    }
+
+    // 3. Menyimpan semuanya ke Database
     const chapterBaru = new Chapter({
         judulKomik: req.body.judulKomik,
         nomorChapter: req.body.nomorChapter,
+        cover: linkCover,
         gambar: linkGambar
     });
     
     await chapterBaru.save(); 
 
     res.send(`
-        <div style="background-color: #0b1320; color: white; font-family: sans-serif; padding: 50px; text-align: center; height: 100vh;">
-            <h2 style="color: #4ade80;">Berhasil upload ${req.files.length} gambar ke Cloudinary & MongoDB!</h2>
-            <br>
-            <a href="/" style="padding: 15px 30px; background: #3b82f6; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; margin-right: 10px;">Lihat Halaman Utama</a>
-            <a href="/dashboard" style="padding: 15px 30px; background: #475569; color: white; text-decoration: none; border-radius: 8px; font-weight: bold;">Kembali ke Dashboard</a>
+        <div style="background-color: #0b1320; color: white; padding: 50px; text-align: center; height: 100vh;">
+            <h2 style="color: #4ade80;">Berhasil upload Chapter & Cover!</h2><br>
+            <a href="/" style="padding: 15px 30px; background: #3b82f6; color: white; text-decoration: none; border-radius: 8px;">Lihat Halaman Utama</a>
         </div>
     `);
 });

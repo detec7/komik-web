@@ -31,20 +31,23 @@
         <h2>Series Upload</h2>
         <p>Pilih beberapa gambar sekaligus untuk diunggah.</p>
         
-        <!-- Form untuk mengunggah gambar -->
+        <!-- Form upload yang diperbarui -->
         <form action="/upload-chapter" method="POST" enctype="multipart/form-data" style="background-color: #1e293b; padding: 20px; border-radius: 8px; max-width: 500px; display: flex; flex-direction: column; gap: 15px;">
             
             <label style="color: white;">Judul Komik (Project):</label>
-            <input type="text" name="judulKomik" placeholder="Contoh: Solo Leveling" required style="padding: 10px; border-radius: 5px; border: none;">
+            <input type="text" name="judulKomik" required style="padding: 10px; border-radius: 5px; border: none;">
 
             <label style="color: white;">Nomor Chapter:</label>
-            <input type="number" name="nomorChapter" placeholder="Contoh: 15" required style="padding: 10px; border-radius: 5px; border: none;">
+            <input type="number" name="nomorChapter" required style="padding: 10px; border-radius: 5px; border: none;">
 
-            <label style="color: white;">Pilih Folder Gambar:</label>
-            <!-- Input folder tetap seperti sebelumnya -->
-            <input type="file" name="gambarKomik" webkitdirectory directory multiple accept="image/*" style="color: white;"> 
+            <!-- BARU: Input untuk Cover Thumbnail -->
+            <label style="color: white;">Cover Thumbnail (Ukuran ideal 720x1028):</label>
+            <input type="file" name="cover" accept="image/*" style="color: white; border: 1px solid #475569; padding: 10px; border-radius: 5px;">
+
+            <label style="color: white;">Pilih Folder Gambar Chapter:</label>
+            <input type="file" name="gambarKomik" webkitdirectory directory multiple accept="image/*" style="color: white; border: 1px solid #475569; padding: 10px; border-radius: 5px;"> 
             
-            <button type="submit" style="background-color: #3b82f6; color: white; padding: 12px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; margin-top: 10px;">Upload Chapter</button>
+            <button type="submit" style="background-color: #3b82f6; color: white; padding: 12px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; margin-top: 10px;">Upload Project</button>
         </form>
     </div>
 

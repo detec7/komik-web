@@ -5,12 +5,23 @@
     <title>Daftar Komik</title>
     <style>
         body { background-color: #0b1320; color: #e2e8f0; font-family: sans-serif; padding: 40px; margin: 0; }
-        .container { max-width: 800px; margin: 0 auto; }
-        h1 { border-bottom: 2px solid #1e293b; padding-bottom: 10px; }
-        .chapter-list { list-style: none; padding: 0; }
-        .chapter-item { background-color: #0f172a; margin-bottom: 10px; padding: 15px; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; }
-        .chapter-link { color: #38bdf8; text-decoration: none; font-weight: bold; padding: 8px 15px; background-color: #1e293b; border-radius: 5px;}
+        .container { max-width: 900px; margin: 0 auto; }
+        h1 { border-bottom: 2px solid #1e293b; padding-bottom: 10px; margin-bottom: 30px; }
+        
+        /* Desain Card Komik */
+        .komik-card { display: flex; background-color: #0f172a; margin-bottom: 25px; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .komik-cover { width: 180px; height: 260px; object-fit: cover; }
+        .komik-info { padding: 20px; flex-grow: 1; }
+        .komik-title { margin-top: 0; color: #38bdf8; font-size: 24px; margin-bottom: 20px; }
+        
+        /* Desain List Chapter */
+        .chapter-list { display: flex; flex-direction: column; gap: 10px; max-height: 180px; overflow-y: auto; padding-right: 10px; }
+        .chapter-link { background-color: #1e293b; color: #e2e8f0; text-decoration: none; padding: 10px 15px; border-radius: 5px; font-weight: bold; transition: 0.2s; }
         .chapter-link:hover { background-color: #3b82f6; color: white; }
+        
+        /* Scrollbar kustom untuk list chapter */
+        .chapter-list::-webkit-scrollbar { width: 6px; }
+        .chapter-list::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
     </style>
 </head>
 <body>
@@ -18,20 +29,27 @@
     <div class="container">
         <h1>Update Terbaru</h1>
         
-        <ul class="chapter-list">
-            <!-- Melakukan perulangan untuk mencetak semua chapter dari database -->
-            <% if (listChapter.length === 0) { %>
-                <p style="color: #94a3b8;">Belum ada chapter yang diunggah.</p>
-            <% } else { %>
-                <% listChapter.forEach(function(chapter) { %>
-                    <li class="chapter-item">
-                        <span><strong><%= chapter.judulKomik %></strong> - Chapter <%= chapter.nomorChapter %></span>
-                        <!-- Link dinamis menuju halaman baca khusus untuk chapter ini -->
-                        <a href="/baca/<%= chapter._id %>" class="chapter-link">Baca</a>
-                    </li>
-                <% }); %>
-            <% } %>
-        </ul>
+        <% if (listKomik.length === 0) { %>
+            <p style="color: #94a3b8;">Belum ada project yang diunggah.</p>
+        <% } else { %>
+            <% listKomik.forEach(function(komik) { %>
+                <div class="komik-card">
+                    <!-- Sisi Kiri: Cover -->
+                    <img src="<%= komik.cover %>" alt="<%= komik.judul %>" class="komik-cover">
+                    
+                    <!-- Sisi Kanan: Judul & Chapter -->
+                    <div class="komik-info">
+                        <h2 class="komik-title"><%= komik.judul %></h2>
+                        <div class="chapter-list">
+                            <% komik.chapters.forEach(function(ch) { %>
+                                <a href="/baca/<%= ch._id %>" class="chapter-link">Chapter - <%= ch.nomorChapter %></a>
+                            <% }); %>
+                        </div>
+                    </div>
+                </div>
+            <% }); %>
+        <% } %>
+
     </div>
 
 </body>
