@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Baca Chapter</title>
+    <style>
+        body { background-color: #111; color: white; text-align: center; font-family: sans-serif; margin: 0; padding: 20px;}
+        #reader-area { max-width: 800px; margin: 0 auto; background-color: #000; box-shadow: 0 0 15px rgba(0,0,0,0.5);}
+    </style>
+</head>
+<body>
+
+    <h2 style="margin-bottom: 20px;">Chapter Terbaru</h2>
+    <div id="reader-area"></div>
+
+    <script>
+        // Proteksi Anti-Klik Kanan dan Shortcut Inspect
+        document.addEventListener('contextmenu', event => event.preventDefault());
+        document.addEventListener('keydown', event => {
+            if(event.keyCode == 123 || (event.ctrlKey && event.shiftKey && (event.keyCode == 73 || event.keyCode == 74)) || (event.ctrlKey && event.keyCode == 85)) {
+                event.preventDefault();
+            }
+        });
+
+        const container = document.getElementById('reader-area');
+        const shadow = container.attachShadow({ mode: 'closed' });
+
+        // Menerima data dengan aman dari server
+        const imageUrls = <%- JSON.stringify(daftarGambar || []) %>;
+
+        if(imageUrls.length === 0) {
+            shadow.innerHTML = "<h3 style='color: #888; padding: 50px;'>Belum ada chapter yang diunggah.</h3>";
+        } else {
+            imageUrls.forEach(url => {
+                const img = document.createElement('img');
+                img.src = url;
+                img.style.width = '100%';
+                img.style.display = 'block'; // Mencegah celah putih di bawah gambar
+                img.style.margin = '0';
+                img.style.padding = '0';
+                shadow.appendChild(img);
+            });
+        }
+    </script>
+</body>
+</html>

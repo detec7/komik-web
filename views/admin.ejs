@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Dashboard</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; background-color: #0b1320; color: #a0aec0; display: flex; height: 100vh;}
+        /* Desain Sidebar Kiri */
+        .sidebar { width: 250px; background-color: #0f172a; padding: 20px; display: flex; flex-direction: column; justify-content: space-between; border-right: 1px solid #1e293b;}
+        .menu-item { padding: 15px; margin-bottom: 5px; cursor: pointer; border-radius: 5px; }
+        .menu-item:hover { background-color: #1e293b; color: white; }
+        .logout-btn { background-color: #0f172a; color: white; border: 1px solid #1e293b; padding: 15px; border-radius: 5px; cursor: pointer; text-align: center;}
+        /* Desain Konten Kanan */
+        .content { flex-grow: 1; padding: 40px; }
+        h2 { color: white; }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div>
+            <div class="menu-item">Dashboard</div>
+            <div class="menu-item">Series Upload</div>
+            <div class="menu-item">Users Management</div>
+            <div class="menu-item">Series Management</div>
+        </div>
+        <div class="logout-btn">Logout</div>
+    </div>
+
+    <div class="content">
+        <h2>Series Upload</h2>
+        <p>Pilih beberapa gambar sekaligus untuk diunggah.</p>
+        
+        <!-- Form untuk mengunggah gambar -->
+        <form action="/upload-chapter" method="POST" enctype="multipart/form-data" style="background-color: #1e293b; padding: 20px; border-radius: 8px; max-width: 500px; display: flex; flex-direction: column; gap: 15px;">
+            
+            <label style="color: white;">Judul Komik (Project):</label>
+            <input type="text" name="judulKomik" placeholder="Contoh: Solo Leveling" required style="padding: 10px; border-radius: 5px; border: none;">
+
+            <label style="color: white;">Nomor Chapter:</label>
+            <input type="number" name="nomorChapter" placeholder="Contoh: 15" required style="padding: 10px; border-radius: 5px; border: none;">
+
+            <label style="color: white;">Pilih Folder Gambar:</label>
+            <!-- Input folder tetap seperti sebelumnya -->
+            <input type="file" name="gambarKomik" webkitdirectory directory multiple accept="image/*" style="color: white;"> 
+            
+            <button type="submit" style="background-color: #3b82f6; color: white; padding: 12px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; margin-top: 10px;">Upload Chapter</button>
+        </form>
+    </div>
+
+</body>
+</html>
