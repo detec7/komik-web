@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Edit Chapter</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; background-color: #0b1320; color: #e2e8f0; padding: 40px;}
+        .edit-container { background-color: #0f172a; padding: 30px; border-radius: 8px; max-width: 600px; margin: 0 auto; border: 1px solid #1e293b;}
+        h2 { color: white; margin-top: 0;}
+        label { display: block; margin-bottom: 10px; margin-top: 20px; font-weight: bold; color: #94a3b8;}
+        input[type="number"], input[type="file"] { width: 100%; padding: 12px; background-color: #1e293b; border: 1px solid #334155; color: white; border-radius: 5px; box-sizing: border-box;}
+        .btn-save { background-color: #3b82f6; color: white; padding: 15px; width: 100%; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; margin-top: 30px; font-size: 16px;}
+        .btn-back { color: #38bdf8; text-decoration: none; display: inline-block; margin-bottom: 20px;}
+    </style>
+</head>
+<body>
+
+    <a href="/management" class="btn-back">← Kembali ke Management</a>
+
+    <div class="edit-container">
+        <h2>Edit <%= chapter.judulKomik %></h2>
+        
+        <form action="/update-chapter/<%= chapter._id %>" method="POST" enctype="multipart/form-data">
+            
+            <label>Nomor Chapter:</label>
+            <!-- Kolom ini otomatis berisi angka chapter lama agar mudah diedit -->
+            <input type="number" name="nomorChapter" value="<%= chapter.nomorChapter %>" required>
+
+            <label>Replace Chapter Images (Opsional):</label>
+            <p style="font-size: 13px; color: #64748b; margin-top: -5px;">Biarkan kosong jika kamu tidak ingin mengganti gambar komiknya.</p>
+            <input type="file" name="gambarKomikBaru" webkitdirectory directory multiple accept="image/*">
+            
+            <button type="submit" class="btn-save">SAVE CHANGES</button>
+        </form>
+    </div>
+
+</body>
+</html>

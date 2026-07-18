@@ -126,6 +126,68 @@ app.get('/baca/:id', async (req, res) => {
     }
 });
 
+// === FITUR SERIES MANAGEMENT ===
+
+// 1. Halaman Daftar Chapter (Management)
+app.get('/management', async (req, res) => {
+    try {
+        const semuaChapter = await Chapter.find().sort({ tanggalDibuat: -1 });
+        res.render('management', { listChapter: semuaChapter });
+    } catch (err) {
+        res.send("Terjadi kesalahan saat memuat halaman management.");
+    }
+});
+
+// 2. Proses Hapus Chapter (Delete)
+app.post('/delete-chapter/:id', async (req, res) => {
+    try {
+        await Chapter.findByIdAndDelete(req.params.id);
+        res.redirect('/management'); // Kembali ke halaman management setelah dihapus
+    } catch (err) {
+        res.send("Gagal menghapus chapter.");
+    }
+});
+
+// 3. Halaman Edit Chapter
+app.get('/edit-chapter/:id', async (req, res) => {
+    try {
+        const chapter = await Chapter.findById(req.params.id);
+        res.render('edit', { chapter: chapter });
+    } catch (err) {
+        res.send("Chapter tidak ditemukan.");
+    }
+});
+
+// 4. Proses Simpan Editan (Update)
+app.post('/update-chapter/:id', upload.array('gambarKomikBaru', 500), async (req, res) => {
+    try {
+        const chapterId = req.params.id;
+        
+        // Data dasar yang pasti diupdate (Nomor Chapter)
+        let updateData = { 
+            nomorChapter: req.body.nomorChapter 
+        };
+
+        // Jika form Upload Gambar diisi (artinya mau ganti gambar)
+        if (req.files && req.files.length > 0) {
+            let fileYangDiurutkan = req.files.sort((a, b) => {
+                return a.originalname.localeCompare(b.originalname, undefined, { numeric: true, sensitivity: 'base' });
+            });
+            
+            let linkGambarBaru = [];
+            fileYangDiurutkan.forEach(file => { linkGambarBaru.push(file.path); });
+            
+            updateData.gambar = linkGambarBaru; // Timpa gambar lama dengan yang baru
+        }
+
+        // Perbarui database
+        await Chapter.findByIdAndUpdate(chapterId, updateData);
+        res.redirect('/management'); // Kembali ke halaman management setelah sukses
+    } catch (err) {
+        res.send("Gagal mengupdate chapter.");
+    }
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Server berhasil berjalan di port ${PORT}`);
