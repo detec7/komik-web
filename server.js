@@ -32,7 +32,9 @@ const cekAdmin = (req, res, next) => {
 // === FUNGSI PEMBUAT URL CANTIK (SLUG) ===
 const buatSlug = (judul, chapter) => {
     let teks = judul + " ch " + chapter + " bahasa indonesia";
-    // Mengubah spasi jadi tanda strip, menghilangkan simbol aneh, dan membuat huruf kecil
+    // 1. Hapus tanda kutip tunggal (') dan ganda (") terlebih dahulu agar tidak jadi strip
+    teks = teks.replace(/['"]/g, '');
+    // 2. Ubah spasi dan simbol aneh lainnya menjadi strip, lalu jadikan huruf kecil
     return teks.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
 };
 

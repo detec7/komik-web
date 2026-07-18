@@ -2,46 +2,80 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Baca Chapter</title>
+    <!-- MISI 1: Mengubah Judul Tab -->
+    <title><%= chapter.judulKomik %> Chapter <%= chapter.nomorChapter %></title>
     <style>
-        body { background-color: #111; color: white; text-align: center; font-family: sans-serif; margin: 0; padding: 20px;}
-        #reader-area { max-width: 800px; margin: 0 auto; background-color: #000; box-shadow: 0 0 15px rgba(0,0,0,0.5);}
+        body { background-color: #0b1320; color: white; font-family: sans-serif; text-align: center; margin: 0; padding: 20px; }
+        .reader-container { max-width: 800px; margin: 0 auto; }
+        
+        /* MISI 3: Styling Tombol Home di Kiri dan Judul di Tengah */
+        .header-nav { display: flex; align-items: center; justify-content: center; position: relative; margin-bottom: 30px; margin-top: 10px; }
+        .btn-home { position: absolute; left: 0; background-color: #3b82f6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold; transition: 0.2s; }
+        .btn-home:hover { background-color: #2563eb; }
+        .chapter-title { margin: 0; font-size: 22px; color: #e2e8f0; }
+        
+        /* Pengaturan Canvas untuk gambar */
+        canvas { display: block; margin: 0 auto; max-width: 100%; margin-bottom: -4px; } /* margin-bottom -4px untuk menghilangkan celah antar gambar */
     </style>
 </head>
-<body>
+<body oncontextmenu="return false;"> <!-- Anti Klik Kanan -->
 
-    <!-- Judul Header Otomatis -->
-    <h2 style="margin-bottom: 20px;"><%= chapter.judulKomik %> Chapter <%= chapter.nomorChapter %> Bahasa Indonesia</h2>
-    <div id="reader-area"></div>
+    <div class="reader-container">
+        
+        <!-- Header dengan Tombol Home -->
+        <div class="header-nav">
+            <a href="/" class="btn-home">Home</a>
+            <h2 class="chapter-title"><%= chapter.judulKomik %> Chapter <%= chapter.nomorChapter %> Bahasa Indonesia</h2>
+        </div>
+
+        <!-- Wadah untuk memuat Canvas Gambar -->
+        <div id="reader-area"></div>
+    </div>
 
     <script>
-        // Proteksi Anti-Klik Kanan dan Shortcut Inspect
-        document.addEventListener('contextmenu', event => event.preventDefault());
-        document.addEventListener('keydown', event => {
-            if(event.keyCode == 123 || (event.ctrlKey && event.shiftKey && (event.keyCode == 73 || event.keyCode == 74)) || (event.ctrlKey && event.keyCode == 85)) {
-                event.preventDefault();
-            }
+        // MISI 4: SISTEM ANTI FATKUN (Canvas Rendering + URL Blob)
+        const imageUrls = <%- JSON.stringify(chapter.gambar || []) %>;
+        const container = document.getElementById('reader-area');
+
+        imageUrls.forEach(url => {
+            // Membuat elemen Canvas (Bukan <img>, sehingga Fatkun tidak bisa membacanya)
+            const canvas = document.createElement('canvas');
+            container.appendChild(canvas);
+
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+            
+            // Izin keamanan lintas server (Wajib untuk Cloudinary)
+            img.crossOrigin = "Anonymous"; 
+            
+            // Logika ketika gambar selesai dimuat
+            img.onload = function() {
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0); // Melukis gambar ke dalam canvas
+            };
+            
+            // Mengubah URL Cloudinary menjadi URL Blob (Teks Acak Lokal) agar URL asli tidak muncul di DOM
+            fetch(url)
+                .then(response => response.blob())
+                .then(blob => {
+                    const blobUrl = URL.createObjectURL(blob);
+                    img.src = blobUrl; // Memasukkan URL samaran ke mesin pelukis
+                })
+                .catch(err => {
+                    // Jika jaringan lambat, gunakan URL asli sebagai cadangan
+                    img.src = url; 
+                });
         });
 
-        const container = document.getElementById('reader-area');
-        const shadow = container.attachShadow({ mode: 'closed' });
-
-        // Menerima data dari objek chapter yang baru
-        const imageUrls = <%- JSON.stringify(chapter.gambar || []) %>;
-
-        if(imageUrls.length === 0) {
-            shadow.innerHTML = "<h3 style='color: #888; padding: 50px;'>Belum ada chapter yang diunggah.</h3>";
-        } else {
-            imageUrls.forEach(url => {
-                const img = document.createElement('img');
-                img.src = url;
-                img.style.width = '100%';
-                img.style.display = 'block'; // Mencegah celah putih di bawah gambar
-                img.style.margin = '0';
-                img.style.padding = '0';
-                shadow.appendChild(img);
-            });
-        }
+        // Anti Inspect Element (Mencegah F12, Ctrl+Shift+I, Ctrl+U)
+        document.onkeydown = function(e) {
+            if (e.keyCode == 123 || 
+               (e.ctrlKey && e.shiftKey && (e.keyCode == 'I'.charCodeAt(0) || e.keyCode == 'C'.charCodeAt(0) || e.keyCode == 'J'.charCodeAt(0))) || 
+               (e.ctrlKey && e.keyCode == 'U'.charCodeAt(0))) {
+                return false;
+            }
+        };
     </script>
 </body>
 </html>
