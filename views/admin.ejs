@@ -17,14 +17,17 @@
 </head>
 <body>
 
-    <div class="sidebar">
+    <div class="sidebar" style="display: flex; flex-direction: column; justify-content: space-between; height: 100vh;">
         <div>
             <a href="/dashboard" class="menu-item" style="color: white; text-decoration: none; padding: 15px; display: block; margin-bottom: 5px; background-color: #1e293b; border-radius: 5px;">Series Upload</a>
             <a href="/management" class="menu-item" style="color: #94a3b8; text-decoration: none; padding: 15px; display: block; margin-bottom: 5px;">Series Management</a>
             <a href="/" class="menu-item" style="color: #94a3b8; text-decoration: none; padding: 15px; display: block; margin-bottom: 5px;">Lihat Website</a>
         </div>
-    </div>
-        <div class="logout-btn">Logout</div>
+        
+        <!-- Bagian Bawah Sidebar (Tombol Logout) -->
+        <div style="padding-bottom: 20px;">
+            <a href="/logout" class="menu-item" style="color: #ef4444; text-decoration: none; padding: 15px; display: block; border: 1px solid #ef4444; border-radius: 5px; font-weight: bold; text-align: center;">Logout</a>
+        </div>
     </div>
 
     <div class="content">

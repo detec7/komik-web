@@ -10,7 +10,8 @@
 </head>
 <body>
 
-    <h2 style="margin-bottom: 20px;">Chapter Terbaru</h2>
+    <!-- Judul Header Otomatis -->
+    <h2 style="margin-bottom: 20px;"><%= chapter.judulKomik %> Chapter <%= chapter.nomorChapter %> Bahasa Indonesia</h2>
     <div id="reader-area"></div>
 
     <script>
@@ -25,8 +26,8 @@
         const container = document.getElementById('reader-area');
         const shadow = container.attachShadow({ mode: 'closed' });
 
-        // Menerima data dengan aman dari server
-        const imageUrls = <%- JSON.stringify(daftarGambar || []) %>;
+        // Menerima data dari objek chapter yang baru
+        const imageUrls = <%- JSON.stringify(chapter.gambar || []) %>;
 
         if(imageUrls.length === 0) {
             shadow.innerHTML = "<h3 style='color: #888; padding: 50px;'>Belum ada chapter yang diunggah.</h3>";

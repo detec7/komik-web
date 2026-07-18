@@ -1,29 +1,54 @@
-require('dotenv').config(); // BARU: Membuka brankas rahasia
+require('dotenv').config();
 const express = require('express');
 const multer = require('multer'); 
-// ... (biarkan yang lain tetap sama)
 const path = require('path'); 
 const mongoose = require('mongoose');
-// BARU: Memanggil alat pemroses Cloudinary
 const cloudinary = require('cloudinary').v2;
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const session = require('express-session'); // Alat untuk sistem Login
 
 const app = express();
 app.set('view engine', 'ejs');
 app.use(express.static('public'));
+app.use(express.urlencoded({ extended: true })); // Wajib agar form login bisa dibaca
+
+// === PENGATURAN SESI LOGIN ===
+app.use(session({
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: true
+}));
+
+// === FUNGSI PENJAGA KEAMANAN (MIDDLEWARE) ===
+// Fungsi ini menendang siapa saja yang mencoba mengakses link admin tanpa login
+const cekAdmin = (req, res, next) => {
+    if (req.session.isAdmin) {
+        next(); // Boleh masuk
+    } else {
+        res.redirect('/login'); // Ditendang ke halaman login
+    }
+};
+
+// === FUNGSI PEMBUAT URL CANTIK (SLUG) ===
+const buatSlug = (judul, chapter) => {
+    let teks = judul + " ch " + chapter + " bahasa indonesia";
+    // Mengubah spasi jadi tanda strip, menghilangkan simbol aneh, dan membuat huruf kecil
+    return teks.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+};
 
 // === 1. KONEKSI DATABASE MONGODB ===
-const mongoURI = process.env.MONGO_URI; // Mengambil dari file .env
+const mongoURI = process.env.MONGO_URI;
 
 mongoose.connect(mongoURI)
-// ...
     .then(() => console.log('Berhasil terhubung ke MongoDB Atlas!'))
     .catch(err => console.error('Gagal terhubung ke MongoDB:', err));
 
+// STRUKTUR DATABASE
 const chapterSchema = new mongoose.Schema({
     judulKomik: String,
     nomorChapter: Number,
-    cover: String, // BARU: Untuk menyimpan link Cover
+    slug: String, // Untuk URL khusus (contoh: solo-leveling-ch-1)
+    cover: String, 
     gambar: [String],
     tanggalDibuat: { type: Date, default: Date.now }
 });
@@ -36,36 +61,33 @@ cloudinary.config({
     api_secret: process.env.API_SECRET 
 });
 
-// === 3. SISTEM UPLOAD BARU (Ke Cloudinary) ===
 const storage = new CloudinaryStorage({
     cloudinary: cloudinary,
     params: {
-        folder: 'komik_uploads', // Nama folder yang akan dibuat otomatis di Cloudinary
+        folder: 'komik_uploads',
         allowed_formats: ['jpg', 'jpeg', 'png', 'webp']
     },
 });
 const upload = multer({ storage: storage });
 
+
+// === 3. ROUTING PUBLIK (BISA DIAKSES SEMUA ORANG) ===
+
+// Halaman Utama
 app.get('/', async (req, res) => {
     try {
-        // Mengurutkan dari chapter terbesar ke terkecil
         const semuaChapter = await Chapter.find().sort({ nomorChapter: -1 });
-        
-        // Mengelompokkan chapter agar tidak berceceran (sesuai Judul)
         const komikGroup = {};
         semuaChapter.forEach(ch => {
             if (!komikGroup[ch.judulKomik]) {
                 komikGroup[ch.judulKomik] = {
                     judul: ch.judulKomik,
-                    // Jika tidak ada cover, gunakan gambar default
                     cover: ch.cover || 'https://via.placeholder.com/720x1028?text=No+Cover',
                     chapters: []
                 };
             }
             komikGroup[ch.judulKomik].chapters.push(ch);
         });
-
-        // Mengubah objek grup menjadi array agar bisa dibaca EJS
         const listKomik = Object.values(komikGroup);
         res.render('index', { listKomik: listKomik });
     } catch (err) {
@@ -73,14 +95,48 @@ app.get('/', async (req, res) => {
     }
 });
 
-app.get('/dashboard', (req, res) => {
+// Halaman Baca (Mencari berdasarkan URL Slug, bukan ID)
+app.get('/baca/:slug', async (req, res) => {
+    try {
+        const chapterDipilih = await Chapter.findOne({ slug: req.params.slug });
+        if (!chapterDipilih) {
+            return res.send("Chapter tidak ditemukan.");
+        }
+        res.render('baca', { chapter: chapterDipilih }); 
+    } catch (error) {
+        res.send("Terjadi kesalahan.");
+    }
+});
+
+// Sistem Login
+app.get('/login', (req, res) => res.render('login'));
+
+app.post('/login', (req, res) => {
+    // Mencocokkan dengan brankas rahasia .env
+    if (req.body.username === process.env.ADMIN_USER && req.body.password === process.env.ADMIN_PASS) {
+        req.session.isAdmin = true;
+        res.redirect('/dashboard');
+    } else {
+        res.send('<script>alert("Username atau Password salah!"); window.location.href="/login";</script>');
+    }
+});
+
+// Sistem Logout
+app.get('/logout', (req, res) => {
+    req.session.destroy();
+    res.redirect('/login');
+});
+
+
+// === 4. ROUTING ADMIN (DIKUNCI OLEH MIDDLEWARE cekAdmin) ===
+
+// Dashboard Upload
+app.get('/dashboard', cekAdmin, (req, res) => {
     res.render('admin');
 });
 
-// Menggunakan upload.fields untuk menerima input 'cover' dan 'gambarKomik'
-app.post('/upload-chapter', upload.fields([{ name: 'cover', maxCount: 1 }, { name: 'gambarKomik', maxCount: 500 }]), async (req, res) => {
-    
-    // 1. Mengurutkan dan mengambil link gambar chapter
+// Proses Upload (Terdapat Pembuat URL/Slug)
+app.post('/upload-chapter', cekAdmin, upload.fields([{ name: 'cover', maxCount: 1 }, { name: 'gambarKomik', maxCount: 500 }]), async (req, res) => {
     let fileYangDiurutkan = req.files['gambarKomik'].sort((a, b) => {
         return a.originalname.localeCompare(b.originalname, undefined, { numeric: true, sensitivity: 'base' });
     });
@@ -88,16 +144,15 @@ app.post('/upload-chapter', upload.fields([{ name: 'cover', maxCount: 1 }, { nam
     let linkGambar = [];
     fileYangDiurutkan.forEach(file => { linkGambar.push(file.path); });
 
-    // 2. Mengambil link cover (jika diupload)
     let linkCover = '';
     if (req.files['cover'] && req.files['cover'].length > 0) {
         linkCover = req.files['cover'][0].path;
     }
 
-    // 3. Menyimpan semuanya ke Database
     const chapterBaru = new Chapter({
         judulKomik: req.body.judulKomik,
         nomorChapter: req.body.nomorChapter,
+        slug: buatSlug(req.body.judulKomik, req.body.nomorChapter), // Membuat link unik
         cover: linkCover,
         gambar: linkGambar
     });
@@ -112,24 +167,8 @@ app.post('/upload-chapter', upload.fields([{ name: 'cover', maxCount: 1 }, { nam
     `);
 });
 
-app.get('/baca/:id', async (req, res) => {
-    try {
-        const chapterDipilih = await Chapter.findById(req.params.id);
-        
-        if (!chapterDipilih) {
-            return res.send("Chapter tidak ditemukan.");
-        }
-        res.render('baca', { daftarGambar: chapterDipilih.gambar });
-    } catch (error) {
-        console.error(error);
-        res.send("Terjadi kesalahan saat mengambil data chapter.");
-    }
-});
-
-// === FITUR SERIES MANAGEMENT ===
-
-// 1. Halaman Daftar Chapter (Management)
-app.get('/management', async (req, res) => {
+// Halaman Management
+app.get('/management', cekAdmin, async (req, res) => {
     try {
         const semuaChapter = await Chapter.find().sort({ tanggalDibuat: -1 });
         res.render('management', { listChapter: semuaChapter });
@@ -138,18 +177,18 @@ app.get('/management', async (req, res) => {
     }
 });
 
-// 2. Proses Hapus Chapter (Delete)
-app.post('/delete-chapter/:id', async (req, res) => {
+// Proses Delete
+app.post('/delete-chapter/:id', cekAdmin, async (req, res) => {
     try {
         await Chapter.findByIdAndDelete(req.params.id);
-        res.redirect('/management'); // Kembali ke halaman management setelah dihapus
+        res.redirect('/management');
     } catch (err) {
         res.send("Gagal menghapus chapter.");
     }
 });
 
-// 3. Halaman Edit Chapter
-app.get('/edit-chapter/:id', async (req, res) => {
+// Halaman Edit
+app.get('/edit-chapter/:id', cekAdmin, async (req, res) => {
     try {
         const chapter = await Chapter.findById(req.params.id);
         res.render('edit', { chapter: chapter });
@@ -158,17 +197,18 @@ app.get('/edit-chapter/:id', async (req, res) => {
     }
 });
 
-// 4. Proses Simpan Editan (Update)
-app.post('/update-chapter/:id', upload.array('gambarKomikBaru', 500), async (req, res) => {
+// Proses Update
+app.post('/update-chapter/:id', cekAdmin, upload.array('gambarKomikBaru', 500), async (req, res) => {
     try {
         const chapterId = req.params.id;
+        // Mengambil data lama untuk mengingat Judul Komik agar link Slug-nya tidak rusak
+        const chapterLama = await Chapter.findById(chapterId); 
         
-        // Data dasar yang pasti diupdate (Nomor Chapter)
         let updateData = { 
-            nomorChapter: req.body.nomorChapter 
+            nomorChapter: req.body.nomorChapter,
+            slug: buatSlug(chapterLama.judulKomik, req.body.nomorChapter) // Update link jika nomornya diganti
         };
 
-        // Jika form Upload Gambar diisi (artinya mau ganti gambar)
         if (req.files && req.files.length > 0) {
             let fileYangDiurutkan = req.files.sort((a, b) => {
                 return a.originalname.localeCompare(b.originalname, undefined, { numeric: true, sensitivity: 'base' });
@@ -177,12 +217,11 @@ app.post('/update-chapter/:id', upload.array('gambarKomikBaru', 500), async (req
             let linkGambarBaru = [];
             fileYangDiurutkan.forEach(file => { linkGambarBaru.push(file.path); });
             
-            updateData.gambar = linkGambarBaru; // Timpa gambar lama dengan yang baru
+            updateData.gambar = linkGambarBaru; 
         }
 
-        // Perbarui database
         await Chapter.findByIdAndUpdate(chapterId, updateData);
-        res.redirect('/management'); // Kembali ke halaman management setelah sukses
+        res.redirect('/management'); 
     } catch (err) {
         res.send("Gagal mengupdate chapter.");
     }

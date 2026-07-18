@@ -42,7 +42,7 @@
                         <h2 class="komik-title"><%= komik.judul %></h2>
                         <div class="chapter-list">
                             <% komik.chapters.forEach(function(ch) { %>
-                                <a href="/baca/<%= ch._id %>" class="chapter-link">Chapter - <%= ch.nomorChapter %></a>
+                                <a href="/baca/<%= ch.slug %>" class="chapter-link">Chapter - <%= ch.nomorChapter %></a>
                             <% }); %>
                         </div>
                     </div>
