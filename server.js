@@ -70,7 +70,17 @@ const storage = new CloudinaryStorage({
         allowed_formats: ['jpg', 'jpeg', 'png', 'webp']
     },
 });
-const upload = multer({ storage: storage });
+const upload = multer({ 
+    storage: storage,
+    // Saringan pintar untuk membuang file non-gambar (seperti Thumbs.db) secara diam-diam
+    fileFilter: (req, file, cb) => {
+        if (file.mimetype.startsWith('image/')) {
+            cb(null, true); // Loloskan jika file adalah gambar
+        } else {
+            cb(null, false); // Buang jika file bukan gambar tanpa memicu error
+        }
+    }
+});
 
 
 // === 3. ROUTING PUBLIK (BISA DIAKSES SEMUA ORANG) ===
@@ -139,35 +149,57 @@ app.get('/dashboard', cekAdmin, (req, res) => {
 
 // Proses Upload (Bisa untuk Series baru, atau Tambah Chapter ke Series Lama)
 app.post('/upload-chapter', cekAdmin, upload.fields([{ name: 'cover', maxCount: 1 }, { name: 'gambarKomik', maxCount: 500 }]), async (req, res) => {
-    let fileYangDiurutkan = req.files['gambarKomik'].sort((a, b) => {
-        return a.originalname.localeCompare(b.originalname, undefined, { numeric: true, sensitivity: 'base' });
-    });
+    try {
+        // Mencegah error logika jika saringan membuang semua isi folder (folder kosong/salah)
+        if (!req.files || !req.files['gambarKomik'] || req.files['gambarKomik'].length === 0) {
+            return res.send(`
+                <div style="background-color: #0b1320; color: white; padding: 50px; text-align: center; height: 100vh; font-family: sans-serif;">
+                    <h2 style="color: #ef4444;">Gagal: Tidak ada gambar valid yang diunggah.</h2>
+                    <p style="color: #94a3b8;">Pastikan foldermu benar-benar berisi file gambar (JPG/PNG/WEBP).</p><br>
+                    <a href="/management" style="padding: 10px 20px; background: #3b82f6; color: white; text-decoration: none; border-radius: 5px;">Kembali</a>
+                </div>
+            `);
+        }
 
-    let linkGambar = [];
-    fileYangDiurutkan.forEach(file => { linkGambar.push(file.path); });
+        let fileYangDiurutkan = req.files['gambarKomik'].sort((a, b) => {
+            return a.originalname.localeCompare(b.originalname, undefined, { numeric: true, sensitivity: 'base' });
+        });
 
-    // Cerdik: Gunakan cover lama jika ini adalah penambahan chapter dari tombol "Add New Chapter"
-    let linkCover = req.body.coverLama || '';
-    if (req.files && req.files['cover'] && req.files['cover'].length > 0) {
-        linkCover = req.files['cover'][0].path;
+        let linkGambar = [];
+        fileYangDiurutkan.forEach(file => { linkGambar.push(file.path); });
+
+        let linkCover = req.body.coverLama || 'https://via.placeholder.com/720x1028?text=No+Cover';
+        if (req.files && req.files['cover'] && req.files['cover'].length > 0) {
+            linkCover = req.files['cover'][0].path;
+        }
+
+        const chapterBaru = new Chapter({
+            judulKomik: req.body.judulKomik,
+            nomorChapter: req.body.nomorChapter,
+            slug: buatSlug(req.body.judulKomik, req.body.nomorChapter),
+            cover: linkCover,
+            gambar: linkGambar
+        });
+        
+        await chapterBaru.save(); 
+
+        res.send(`
+            <div style="background-color: #0b1320; color: white; padding: 50px; text-align: center; height: 100vh; font-family: sans-serif;">
+                <h2 style="color: #4ade80;">Berhasil upload Chapter!</h2><br>
+                <a href="/management/series/${encodeURIComponent(req.body.judulKomik)}" style="padding: 15px 30px; background: #3b82f6; color: white; text-decoration: none; border-radius: 8px;">Kembali ke Daftar Chapter</a>
+            </div>
+        `);
+    } catch (error) {
+        // Peredam kejut jika terjadi error fatal lainnya (sehingga tidak memunculkan layar putih)
+        console.error(error);
+        res.send(`
+            <div style="background-color: #0b1320; color: white; padding: 50px; text-align: center; height: 100vh; font-family: sans-serif;">
+                <h2 style="color: #ef4444;">Terjadi Kesalahan Server!</h2>
+                <p style="color: #94a3b8;">Proses digagalkan. Detail error telah dicatat di log Render.</p><br>
+                <a href="/management" style="padding: 10px 20px; background: #3b82f6; color: white; text-decoration: none; border-radius: 5px;">Kembali</a>
+            </div>
+        `);
     }
-
-    const chapterBaru = new Chapter({
-        judulKomik: req.body.judulKomik,
-        nomorChapter: req.body.nomorChapter,
-        slug: buatSlug(req.body.judulKomik, req.body.nomorChapter),
-        cover: linkCover,
-        gambar: linkGambar
-    });
-    
-    await chapterBaru.save(); 
-
-    res.send(`
-        <div style="background-color: #0b1320; color: white; padding: 50px; text-align: center; height: 100vh; font-family: sans-serif;">
-            <h2 style="color: #4ade80;">Berhasil upload Chapter!</h2><br>
-            <a href="/management/series/${encodeURIComponent(req.body.judulKomik)}" style="padding: 15px 30px; background: #3b82f6; color: white; text-decoration: none; border-radius: 8px;">Kembali ke Daftar Chapter</a>
-        </div>
-    `);
 });
 
 // Halaman Management (Sekarang Menampilkan Daftar Series)
