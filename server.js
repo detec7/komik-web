@@ -110,6 +110,27 @@ app.get('/baca/:slug', async (req, res) => {
     }
 });
 
+// === 5. API RAHASIA UNTUK GAMBAR (ANTI-MALING) ===
+app.get('/api/gambar/:id', async (req, res) => {
+    // Mengecek 'KTP' pengunjung (Referer)
+    const referer = req.get('Referer');
+    
+    // Jika tidak ada referer, atau referernya bukan dari website kita, TENDANG!
+    if (!referer || !referer.includes(req.get('host'))) {
+        return res.status(403).json({ error: "Akses Ditolak! API ini dilindungi." });
+    }
+
+    try {
+        const chapter = await Chapter.findById(req.params.id);
+        if (!chapter) return res.status(404).json({ error: "Chapter tidak ditemukan." });
+        
+        // Hanya mengirimkan array gambar, bukan data lainnya
+        res.json({ gambar: chapter.gambar });
+    } catch (error) {
+        res.status(500).json({ error: "Terjadi kesalahan server." });
+    }
+});
+
 // Sistem Login
 app.get('/login', (req, res) => res.render('login'));
 

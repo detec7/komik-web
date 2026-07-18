@@ -33,40 +33,69 @@
     </div>
 
     <script>
-        // MISI 4: SISTEM ANTI FATKUN (Canvas Rendering + URL Blob)
-        const imageUrls = <%- JSON.stringify(chapter.gambar || []) %>;
+        // Mengambil ID Chapter (bukan data gambarnya) untuk dikirim ke API
+        const chapterId = "<%= chapter._id %>";
         const container = document.getElementById('reader-area');
 
-        imageUrls.forEach(url => {
-            // Membuat elemen Canvas (Bukan <img>, sehingga Fatkun tidak bisa membacanya)
-            const canvas = document.createElement('canvas');
-            container.appendChild(canvas);
+        // MENGAKTIFKAN SHADOW DOM (Mode: Closed / Terkunci Rapat)
+        // Script luar atau ekstensi browser TIDAK AKAN BISA menembus mode 'closed' ini.
+        const shadowRoot = container.attachShadow({ mode: 'closed' });
 
-            const ctx = canvas.getContext('2d');
-            const img = new Image();
-            
-            // Izin keamanan lintas server (Wajib untuk Cloudinary)
-            img.crossOrigin = "Anonymous"; 
-            
-            // Logika ketika gambar selesai dimuat
-            img.onload = function() {
-                canvas.width = img.width;
-                canvas.height = img.height;
-                ctx.drawImage(img, 0, 0); // Melukis gambar ke dalam canvas
-            };
-            
-            // Mengubah URL Cloudinary menjadi URL Blob (Teks Acak Lokal) agar URL asli tidak muncul di DOM
-            fetch(url)
-                .then(response => response.blob())
-                .then(blob => {
-                    const blobUrl = URL.createObjectURL(blob);
-                    img.src = blobUrl; // Memasukkan URL samaran ke mesin pelukis
-                })
-                .catch(err => {
-                    // Jika jaringan lambat, gunakan URL asli sebagai cadangan
-                    img.src = url; 
+        // Memasukkan CSS khusus ke dalam dimensi bayangan
+        const style = document.createElement('style');
+        style.textContent = `
+            canvas { display: block; margin: 0 auto; max-width: 100%; margin-bottom: -4px; }
+        `;
+        shadowRoot.appendChild(style);
+
+        // Meminta data gambar secara diam-diam ke API rahasia kita
+        fetch(`/api/gambar/${chapterId}`)
+            .then(res => {
+                if (!res.ok) throw new Error("Akses Ditolak");
+                return res.json();
+            })
+            .then(data => {
+                if (!data.gambar) return;
+
+                // Melukis gambar satu per satu ke dalam Shadow DOM
+                data.gambar.forEach(url => {
+                    const canvas = document.createElement('canvas');
+                    shadowRoot.appendChild(canvas); // Masuk ke Shadow DOM, bukan DOM biasa!
+
+                    const ctx = canvas.getContext('2d');
+                    const img = new Image();
+                    img.crossOrigin = "Anonymous"; 
+                    
+                    img.onload = function() {
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        ctx.drawImage(img, 0, 0); 
+                    };
+                    
+                    // Mengubah URL menjadi Blob (Teks Acak Lokal)
+                    fetch(url)
+                        .then(response => response.blob())
+                        .then(blob => {
+                            img.src = URL.createObjectURL(blob); 
+                        })
+                        .catch(err => {
+                            img.src = url; 
+                        });
                 });
-        });
+            })
+            .catch(err => {
+                console.log("Sistem Keamanan Aktif: Pengambilan gambar digagalkan.");
+            });
+
+        // Anti Inspect Element (Mencegah F12, Ctrl+Shift+I, Ctrl+U)
+        document.onkeydown = function(e) {
+            if (e.keyCode == 123 || 
+               (e.ctrlKey && e.shiftKey && (e.keyCode == 'I'.charCodeAt(0) || e.keyCode == 'C'.charCodeAt(0) || e.keyCode == 'J'.charCodeAt(0))) || 
+               (e.ctrlKey && e.keyCode == 'U'.charCodeAt(0))) {
+                return false;
+            }
+        };
+    </script>
 
         // Anti Inspect Element (Mencegah F12, Ctrl+Shift+I, Ctrl+U)
         document.onkeydown = function(e) {
