@@ -2,102 +2,57 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <!-- MISI 1: Mengubah Judul Tab -->
     <title><%= chapter.judulKomik %> Chapter <%= chapter.nomorChapter %></title>
     <style>
         body { background-color: #0b1320; color: white; font-family: sans-serif; text-align: center; margin: 0; padding: 20px; }
         .reader-container { max-width: 800px; margin: 0 auto; }
-        
-        /* MISI 3: Styling Tombol Home di Kiri dan Judul di Tengah */
         .header-nav { display: flex; align-items: center; justify-content: center; position: relative; margin-bottom: 30px; margin-top: 10px; }
         .btn-home { position: absolute; left: 0; background-color: #3b82f6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold; transition: 0.2s; }
         .btn-home:hover { background-color: #2563eb; }
         .chapter-title { margin: 0; font-size: 22px; color: #e2e8f0; }
-        
-        /* Pengaturan Canvas untuk gambar */
-        canvas { display: block; margin: 0 auto; max-width: 100%; margin-bottom: -4px; } /* margin-bottom -4px untuk menghilangkan celah antar gambar */
     </style>
 </head>
-<body oncontextmenu="return false;"> <!-- Anti Klik Kanan -->
+<body oncontextmenu="return false;">
 
     <div class="reader-container">
-        
-        <!-- Header dengan Tombol Home -->
         <div class="header-nav">
             <a href="/" class="btn-home">Home</a>
             <h2 class="chapter-title"><%= chapter.judulKomik %> Chapter <%= chapter.nomorChapter %> Bahasa Indonesia</h2>
         </div>
-
-        <!-- Wadah untuk memuat Canvas Gambar -->
         <div id="reader-area"></div>
     </div>
 
     <script>
-        // Mengambil ID Chapter (bukan data gambarnya) untuk dikirim ke API
         const chapterId = "<%= chapter._id %>";
         const container = document.getElementById('reader-area');
-
-        // MENGAKTIFKAN SHADOW DOM (Mode: Closed / Terkunci Rapat)
-        // Script luar atau ekstensi browser TIDAK AKAN BISA menembus mode 'closed' ini.
         const shadowRoot = container.attachShadow({ mode: 'closed' });
 
-        // Memasukkan CSS khusus ke dalam dimensi bayangan
         const style = document.createElement('style');
-        style.textContent = `
-            canvas { display: block; margin: 0 auto; max-width: 100%; margin-bottom: -4px; }
-        `;
+        style.textContent = `canvas { display: block; margin: 0 auto; max-width: 100%; margin-bottom: -4px; }`;
         shadowRoot.appendChild(style);
 
-        // Meminta data gambar secara diam-diam ke API rahasia kita
         fetch(`/api/gambar/${chapterId}`)
-            .then(res => {
-                if (!res.ok) throw new Error("Akses Ditolak");
-                return res.json();
-            })
+            .then(res => res.json())
             .then(data => {
                 if (!data.gambar) return;
-
-                // Melukis gambar satu per satu ke dalam Shadow DOM
                 data.gambar.forEach(url => {
                     const canvas = document.createElement('canvas');
-                    shadowRoot.appendChild(canvas); // Masuk ke Shadow DOM, bukan DOM biasa!
-
+                    shadowRoot.appendChild(canvas);
                     const ctx = canvas.getContext('2d');
                     const img = new Image();
                     img.crossOrigin = "Anonymous"; 
-                    
-                    img.onload = function() {
+                    img.onload = () => {
                         canvas.width = img.width;
                         canvas.height = img.height;
                         ctx.drawImage(img, 0, 0); 
                     };
-                    
-                    // Mengubah URL menjadi Blob (Teks Acak Lokal)
-                    fetch(url)
-                        .then(response => response.blob())
-                        .then(blob => {
-                            img.src = URL.createObjectURL(blob); 
-                        })
-                        .catch(err => {
-                            img.src = url; 
-                        });
+                    fetch(url).then(r => r.blob()).then(blob => {
+                        img.src = URL.createObjectURL(blob); 
+                    }).catch(() => { img.src = url; });
                 });
-            })
-            .catch(err => {
-                console.log("Sistem Keamanan Aktif: Pengambilan gambar digagalkan.");
-            });
+            }).catch(err => console.log("Akses Ditolak"));
 
-        // Anti Inspect Element (Mencegah F12, Ctrl+Shift+I, Ctrl+U)
-        document.onkeydown = function(e) {
-            if (e.keyCode == 123 || 
-               (e.ctrlKey && e.shiftKey && (e.keyCode == 'I'.charCodeAt(0) || e.keyCode == 'C'.charCodeAt(0) || e.keyCode == 'J'.charCodeAt(0))) || 
-               (e.ctrlKey && e.keyCode == 'U'.charCodeAt(0))) {
-                return false;
-            }
-        };
-    </script>
-
-        // Anti Inspect Element (Mencegah F12, Ctrl+Shift+I, Ctrl+U)
+        // Anti Inspect Element 
         document.onkeydown = function(e) {
             if (e.keyCode == 123 || 
                (e.ctrlKey && e.shiftKey && (e.keyCode == 'I'.charCodeAt(0) || e.keyCode == 'C'.charCodeAt(0) || e.keyCode == 'J'.charCodeAt(0))) || 
