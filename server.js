@@ -110,27 +110,6 @@ app.get('/baca/:slug', async (req, res) => {
     }
 });
 
-// === 5. API RAHASIA UNTUK GAMBAR (ANTI-MALING) ===
-app.get('/api/gambar/:id', async (req, res) => {
-    // Mengecek 'KTP' pengunjung (Referer)
-    const referer = req.get('Referer');
-    
-    // Jika tidak ada referer, atau referernya bukan dari website kita, TENDANG!
-    if (!referer || !referer.includes(req.get('host'))) {
-        return res.status(403).json({ error: "Akses Ditolak! API ini dilindungi." });
-    }
-
-    try {
-        const chapter = await Chapter.findById(req.params.id);
-        if (!chapter) return res.status(404).json({ error: "Chapter tidak ditemukan." });
-        
-        // Hanya mengirimkan array gambar, bukan data lainnya
-        res.json({ gambar: chapter.gambar });
-    } catch (error) {
-        res.status(500).json({ error: "Terjadi kesalahan server." });
-    }
-});
-
 // Sistem Login
 app.get('/login', (req, res) => res.render('login'));
 
@@ -153,12 +132,12 @@ app.get('/logout', (req, res) => {
 
 // === 4. ROUTING ADMIN (DIKUNCI OLEH MIDDLEWARE cekAdmin) ===
 
-// Dashboard Upload
+// Dashboard Upload (Untuk Project/Series Baru)
 app.get('/dashboard', cekAdmin, (req, res) => {
     res.render('admin');
 });
 
-// Proses Upload (Terdapat Pembuat URL/Slug)
+// Proses Upload (Bisa untuk Series baru, atau Tambah Chapter ke Series Lama)
 app.post('/upload-chapter', cekAdmin, upload.fields([{ name: 'cover', maxCount: 1 }, { name: 'gambarKomik', maxCount: 500 }]), async (req, res) => {
     let fileYangDiurutkan = req.files['gambarKomik'].sort((a, b) => {
         return a.originalname.localeCompare(b.originalname, undefined, { numeric: true, sensitivity: 'base' });
@@ -167,15 +146,16 @@ app.post('/upload-chapter', cekAdmin, upload.fields([{ name: 'cover', maxCount: 
     let linkGambar = [];
     fileYangDiurutkan.forEach(file => { linkGambar.push(file.path); });
 
-    let linkCover = '';
-    if (req.files['cover'] && req.files['cover'].length > 0) {
+    // Cerdik: Gunakan cover lama jika ini adalah penambahan chapter dari tombol "Add New Chapter"
+    let linkCover = req.body.coverLama || '';
+    if (req.files && req.files['cover'] && req.files['cover'].length > 0) {
         linkCover = req.files['cover'][0].path;
     }
 
     const chapterBaru = new Chapter({
         judulKomik: req.body.judulKomik,
         nomorChapter: req.body.nomorChapter,
-        slug: buatSlug(req.body.judulKomik, req.body.nomorChapter), // Membuat link unik
+        slug: buatSlug(req.body.judulKomik, req.body.nomorChapter),
         cover: linkCover,
         gambar: linkGambar
     });
@@ -183,20 +163,67 @@ app.post('/upload-chapter', cekAdmin, upload.fields([{ name: 'cover', maxCount: 
     await chapterBaru.save(); 
 
     res.send(`
-        <div style="background-color: #0b1320; color: white; padding: 50px; text-align: center; height: 100vh;">
-            <h2 style="color: #4ade80;">Berhasil upload Chapter & Cover!</h2><br>
-            <a href="/" style="padding: 15px 30px; background: #3b82f6; color: white; text-decoration: none; border-radius: 8px;">Lihat Halaman Utama</a>
+        <div style="background-color: #0b1320; color: white; padding: 50px; text-align: center; height: 100vh; font-family: sans-serif;">
+            <h2 style="color: #4ade80;">Berhasil upload Chapter!</h2><br>
+            <a href="/management/series/${encodeURIComponent(req.body.judulKomik)}" style="padding: 15px 30px; background: #3b82f6; color: white; text-decoration: none; border-radius: 8px;">Kembali ke Daftar Chapter</a>
         </div>
     `);
 });
 
-// Halaman Management
+// Halaman Management (Sekarang Menampilkan Daftar Series)
 app.get('/management', cekAdmin, async (req, res) => {
     try {
         const semuaChapter = await Chapter.find().sort({ tanggalDibuat: -1 });
-        res.render('management', { listChapter: semuaChapter });
+        
+        // Mengelompokkan berdasarkan Judul Komik agar rapi
+        const komikGroup = {};
+        semuaChapter.forEach(ch => {
+            if (!komikGroup[ch.judulKomik]) {
+                komikGroup[ch.judulKomik] = {
+                    judul: ch.judulKomik,
+                    cover: ch.cover || 'https://via.placeholder.com/150',
+                    jumlahChapter: 0
+                };
+            }
+            komikGroup[ch.judulKomik].jumlahChapter += 1;
+        });
+        
+        const listKomik = Object.values(komikGroup);
+        res.render('management', { listKomik: listKomik });
     } catch (err) {
         res.send("Terjadi kesalahan saat memuat halaman management.");
+    }
+});
+
+// Halaman Daftar Chapter untuk Satu Series Spesifik
+app.get('/management/series/:judul', cekAdmin, async (req, res) => {
+    try {
+        const judul = req.params.judul;
+        // Cari semua chapter dengan judul yang sama
+        const chapters = await Chapter.find({ judulKomik: judul }).sort({ nomorChapter: -1 });
+        
+        if (chapters.length === 0) return res.redirect('/management');
+        
+        res.render('management-chapters', { 
+            judul: judul, 
+            chapters: chapters,
+            coverLama: chapters[0].cover // Membawa cover lama untuk disisipkan ke form tambah chapter
+        });
+    } catch (err) {
+        res.send("Terjadi kesalahan.");
+    }
+});
+
+// Halaman Form Tambah Chapter Khusus (Pre-filled)
+app.get('/tambah-chapter-series/:judul', cekAdmin, async (req, res) => {
+    try {
+        const judul = req.params.judul;
+        const chapterContoh = await Chapter.findOne({ judulKomik: judul });
+        if (!chapterContoh) return res.redirect('/management');
+        
+        res.render('tambah-chapter', { judul: judul, coverLama: chapterContoh.cover });
+    } catch (err) {
+        res.send("Terjadi kesalahan.");
     }
 });
 
@@ -204,7 +231,12 @@ app.get('/management', cekAdmin, async (req, res) => {
 app.post('/delete-chapter/:id', cekAdmin, async (req, res) => {
     try {
         await Chapter.findByIdAndDelete(req.params.id);
-        res.redirect('/management');
+        // Kembali ke halaman series yang sedang dibuka
+        if (req.body.judulKomik) {
+            res.redirect('/management/series/' + encodeURIComponent(req.body.judulKomik));
+        } else {
+            res.redirect('/management');
+        }
     } catch (err) {
         res.send("Gagal menghapus chapter.");
     }
@@ -224,29 +256,48 @@ app.get('/edit-chapter/:id', cekAdmin, async (req, res) => {
 app.post('/update-chapter/:id', cekAdmin, upload.array('gambarKomikBaru', 500), async (req, res) => {
     try {
         const chapterId = req.params.id;
-        // Mengambil data lama untuk mengingat Judul Komik agar link Slug-nya tidak rusak
         const chapterLama = await Chapter.findById(chapterId); 
         
         let updateData = { 
             nomorChapter: req.body.nomorChapter,
-            slug: buatSlug(chapterLama.judulKomik, req.body.nomorChapter) // Update link jika nomornya diganti
+            slug: buatSlug(chapterLama.judulKomik, req.body.nomorChapter) 
         };
 
         if (req.files && req.files.length > 0) {
             let fileYangDiurutkan = req.files.sort((a, b) => {
                 return a.originalname.localeCompare(b.originalname, undefined, { numeric: true, sensitivity: 'base' });
             });
-            
             let linkGambarBaru = [];
             fileYangDiurutkan.forEach(file => { linkGambarBaru.push(file.path); });
-            
             updateData.gambar = linkGambarBaru; 
         }
 
         await Chapter.findByIdAndUpdate(chapterId, updateData);
-        res.redirect('/management'); 
+        // Kembali ke dalam series, bukan ke halaman depan management
+        res.redirect('/management/series/' + encodeURIComponent(chapterLama.judulKomik)); 
     } catch (err) {
         res.send("Gagal mengupdate chapter.");
+    }
+});
+
+// === 5. API RAHASIA UNTUK GAMBAR (ANTI-MALING) ===
+app.get('/api/gambar/:id', async (req, res) => {
+    // Mengecek 'KTP' pengunjung (Referer)
+    const referer = req.get('Referer');
+    
+    // Jika tidak ada referer, atau referernya bukan dari website kita, TENDANG!
+    if (!referer || !referer.includes(req.get('host'))) {
+        return res.status(403).json({ error: "Akses Ditolak! API ini dilindungi." });
+    }
+
+    try {
+        const chapter = await Chapter.findById(req.params.id);
+        if (!chapter) return res.status(404).json({ error: "Chapter tidak ditemukan." });
+        
+        // Hanya mengirimkan array gambar, bukan data lainnya
+        res.json({ gambar: chapter.gambar });
+    } catch (error) {
+        res.status(500).json({ error: "Terjadi kesalahan server." });
     }
 });
 

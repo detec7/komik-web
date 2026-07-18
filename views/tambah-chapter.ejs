@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Tambah Chapter</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; background-color: #0b1320; color: #e2e8f0; padding: 40px;}
+        .edit-container { background-color: #0f172a; padding: 30px; border-radius: 8px; max-width: 600px; margin: 0 auto; border: 1px solid #1e293b;}
+        h2 { color: white; margin-top: 0; font-size: 20px;}
+        label { display: block; margin-bottom: 10px; margin-top: 20px; font-weight: bold; color: #94a3b8;}
+        input[type="text"], input[type="number"], input[type="file"] { width: 100%; padding: 12px; background-color: #1e293b; border: 1px solid #334155; color: white; border-radius: 5px; box-sizing: border-box;}
+        .btn-save { background-color: #3b82f6; color: white; padding: 15px; width: 100%; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; margin-top: 30px; font-size: 16px;}
+        .btn-back { color: #38bdf8; text-decoration: none; display: inline-block; margin-bottom: 20px;}
+    </style>
+</head>
+<body>
+
+    <a href="/management/series/<%= encodeURIComponent(judul) %>" class="btn-back">← Batal & Kembali</a>
+
+    <div class="edit-container">
+        <h2 style="color: #38bdf8;">Tambah Chapter: <span style="color: white;"><%= judul %></span></h2>
+        
+        <form action="/upload-chapter" method="POST" enctype="multipart/form-data">
+            
+            <label>Judul Komik (Otomatis Dikunci):</label>
+            <input type="text" name="judulKomik" value="<%= judul %>" readonly style="color: #94a3b8; cursor: not-allowed;">
+            
+            <!-- Mengirimkan data link cover lama secara tersembunyi -->
+            <input type="hidden" name="coverLama" value="<%= coverLama %>">
+
+            <label>Nomor Chapter Baru:</label>
+            <input type="number" name="nomorChapter" required placeholder="Contoh: 81">
+
+            <label>Pilih Folder Gambar Chapter:</label>
+            <input type="file" name="gambarKomik" webkitdirectory directory multiple accept="image/*" required>
+            
+            <button type="submit" class="btn-save">UPLOAD CHAPTER BARU</button>
+        </form>
+    </div>
+
+</body>
+</html>
